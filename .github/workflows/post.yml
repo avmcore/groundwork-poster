@@ -1,0 +1,38 @@
+name: Post one reel
+
+on:
+  schedule:
+    # 15:00 UTC daily = 11am New York, 4pm London, 8:30pm India
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: post-reel
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post the next clip
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: python3 post_daily.py
+
+      - name: Record what went out
+        if: always()
+        run: |
+          if git diff --quiet queue.json; then
+            echo "queue.json unchanged - nothing to commit"
+            exit 0
+          fi
+          git config user.name  "groundwork-bot"
+          git config user.email "actions@github.com"
+          git add queue.json
+          git commit -m "posted: $(date -u +%Y-%m-%d)"
+          git push
